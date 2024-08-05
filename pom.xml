@@ -99,22 +99,22 @@
     <jackson.version>2.17.2</jackson.version>
     <assertj.version>3.26.3</assertj.version>
     <mockito.version>5.12.0</mockito.version>
-    <fastjson2.version>2.0.49</fastjson2.version>
+    <fastjson2.version>2.0.52</fastjson2.version>
 
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     <maven-install-plugin.version>3.1.2</maven-install-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-    <maven-javadoc-plugin.version>3.7.0</maven-javadoc-plugin.version>
+    <maven-javadoc-plugin.version>3.8.0</maven-javadoc-plugin.version>
     <license-maven-plugin.version>4.5</license-maven-plugin.version>
     <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
-    <maven-release-plugin.version>3.1.0</maven-release-plugin.version>
+    <maven-release-plugin.version>3.1.1</maven-release-plugin.version>
     <maven-bundle-plugin.version>5.1.9</maven-bundle-plugin.version>
     <centralsync-maven-plugin.version>0.1.1</centralsync-maven-plugin.version>
     <maven-surefire-plugin.version>3.3.1</maven-surefire-plugin.version>
     <bom-generator.version>0.200.0</bom-generator.version>
     <bom.template.file.path>file://${project.basedir}/src/config/bom.xml</bom.template.file.path>
     <maven-scm-plugin.version>2.1.0</maven-scm-plugin.version>
-    <maven-versions-plugin.version>2.17.0</maven-versions-plugin.version>
+    <maven-versions-plugin.version>2.17.1</maven-versions-plugin.version>
     <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
     <maven-deploy-plugin.version>3.1.2</maven-deploy-plugin.version>
     <docker-maven-plugin.version>1.2.2</docker-maven-plugin.version>
@@ -479,9 +479,6 @@
             <redirectTestOutputToFile>true</redirectTestOutputToFile>
             <trimStackTrace>false</trimStackTrace>
             <argLine>${jvm.options}</argLine>
-            <jdkToolchain>
-              <version>${latest.java.version}</version>
-            </jdkToolchain>
           </configuration>
         </plugin>
 
@@ -492,49 +489,12 @@
           <configuration>
             <redirectTestOutputToFile>true</redirectTestOutputToFile>
             <trimStackTrace>false</trimStackTrace>
-            <jdkToolchain>
-              <version>${latest.java.version}</version>
-            </jdkToolchain>
           </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-toolchains-plugin</artifactId>
-        <version>3.2.0</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>toolchain</goal>
-            </goals>
-            <configuration>
-              <toolchains>
-                <jdk>
-                  <version>${main.java.version}</version>
-                </jdk>
-              </toolchains>
-            </configuration>
-          </execution>
-          <execution>
-            <id>test</id>
-            <phase>generate-test-sources</phase>
-            <goals>
-              <goal>toolchain</goal>
-            </goals>
-            <configuration>
-              <toolchains>
-                <jdk>
-                  <version>${latest.java.version}</version>
-                </jdk>
-              </toolchains>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.moditect</groupId>
         <artifactId>moditect-maven-plugin</artifactId>
@@ -667,6 +627,9 @@
                 <exclude>etc/header.txt</exclude>
                 <exclude>**/.idea/**</exclude>
                 <exclude>**/target/**</exclude>
+                <exclude>**/scripts/**</exclude>
+                <exclude>**/src/config/**</exclude>
+                <exclude>**/codequality/**</exclude>
                 <exclude>LICENSE</exclude>
                 <exclude>NOTICE</exclude>
                 <exclude>OSSMETADATA</exclude>
@@ -711,6 +674,7 @@
           <configFile>${main.basedir}/src/config/eclipse-java-style.xml</configFile>
           <excludes>
             <exclude>travis/**</exclude>
+            <exclude>**/SAXDecoderTest.java</exclude>
           </excludes>
         </configuration>
         <executions>
@@ -855,6 +819,20 @@
 
   <profiles>
     <profile>
+      <id>quickbuild</id>
+      <properties>
+        <skipTests>true</skipTests>
+        <enforcer.skip>true</enforcer.skip>
+        <animal.sniffer.skip>true</animal.sniffer.skip>
+        <japicmp.skip>true</japicmp.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <formatter.skip>true</formatter.skip>
+        <license.skip>true</license.skip>
+      </properties>
+    </profile>
+
+    <profile>
       <id>windows</id>
       <activation>
         <os>
@@ -948,6 +926,133 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>openrewrite</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.openrewrite.maven</groupId>
+            <artifactId>rewrite-maven-plugin</artifactId>
+            <version>5.37.1</version>
+
+            <dependencies>
+              <dependency>
+                <groupId>org.openrewrite.recipe</groupId>
+                <artifactId>rewrite-testing-frameworks</artifactId>
+                <version>2.15.0</version>
+              </dependency>
+              <dependency>
+                <groupId>org.openrewrite.recipe</groupId>
+                <artifactId>rewrite-migrate-java</artifactId>
+                <version>2.21.0</version>
+              </dependency>
+            </dependencies>
+
+            <executions>
+              <execution>
+                <id>tests</id>
+                <goals>
+                  <goal>runNoFork</goal>
+                </goals>
+                <phase>verify</phase>
+                <configuration>
+                  <exportDatatables>true</exportDatatables>
+                  <activeRecipes>
+                    <recipe>org.openrewrite.java.testing.hamcrest.MigrateHamcrestToAssertJ</recipe>
+                    <recipe>org.openrewrite.java.testing.assertj.JUnitToAssertj</recipe>
+                    <recipe>org.openrewrite.java.testing.assertj.Assertj</recipe>
+                    <recipe>org.openrewrite.java.migrate.UpgradeToJava21</recipe>
+                  </activeRecipes>
+                  <exclusions>
+                    <exclusion>**/src/main/java/**</exclusion>
+                    <exclusion>pom.xml</exclusion>
+                  </exclusions>
+                </configuration>
+              </execution>
+              <execution>
+                <id>sources</id>
+                <goals>
+                  <goal>runNoFork</goal>
+                </goals>
+                <phase>verify</phase>
+                <configuration>
+                  <exportDatatables>true</exportDatatables>
+                  <activeRecipes>
+                    <recipe>org.openrewrite.java.migrate.UpgradeToJava8</recipe>
+                  </activeRecipes>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>toolchain</id>
+      <activation>
+        <property>
+          <name>!toolchain.skip</name>
+        </property>
+      </activation>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-toolchains-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>toolchain</goal>
+                </goals>
+                <configuration>
+                  <toolchains>
+                    <jdk>
+                      <version>${main.java.version}</version>
+                    </jdk>
+                  </toolchains>
+                </configuration>
+              </execution>
+              <execution>
+                <id>test</id>
+                <goals>
+                  <goal>toolchain</goal>
+                </goals>
+                <phase>generate-test-sources</phase>
+                <configuration>
+                  <toolchains>
+                    <jdk>
+                      <version>${latest.java.version}</version>
+                    </jdk>
+                  </toolchains>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${latest.java.version}</version>
+              </jdkToolchain>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${latest.java.version}</version>
+              </jdkToolchain>
+            </configuration>
           </plugin>
         </plugins>
       </build>
